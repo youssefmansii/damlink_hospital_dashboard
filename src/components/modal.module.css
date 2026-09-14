@@ -79,6 +79,20 @@
   gap: 24px;
 }
 
+.errorBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background-color: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: var(--radius-md);
+  color: #B91C1C;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

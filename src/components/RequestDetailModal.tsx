@@ -7,20 +7,19 @@ import styles from './modal.module.css';
 
 export default function RequestDetailModal({ request, onClose, dispatches }: any) {
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!request) return null;
 
   const handleAction = async (action: string) => {
     setLoading(true);
-    let newStatus = request.status;
+    setErrorMessage('');
     
     try {
       if (action === 'accept') {
-        newStatus = 'accepted';
-        const { error } = await supabase
-          .from('emergency_requests')
-          .update({ status: newStatus })
-          .eq('id', request.id);
+        const { error } = await supabase.rpc('accept_hospital_request', {
+          p_request_id: request.id,
+        });
         if (error) throw error;
       } 
       else if (action === 'decline') {
@@ -46,6 +45,7 @@ export default function RequestDetailModal({ request, onClose, dispatches }: any
       onClose();
     } catch (err) {
       console.error(err);
+      setErrorMessage(err instanceof Error ? err.message : 'Could not update this request.');
     } finally {
       setLoading(false);
     }
@@ -77,6 +77,13 @@ export default function RequestDetailModal({ request, onClose, dispatches }: any
         </div>
 
         <div className={styles.content}>
+          {errorMessage && (
+            <div className={styles.errorBanner} role="alert">
+              <AlertTriangle size={16} />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           <div className={styles.grid}>
             {/* Patient Info */}
             <div className={styles.card}>
@@ -150,9 +157,9 @@ export default function RequestDetailModal({ request, onClose, dispatches }: any
             )}
           </div>
           <div className={styles.actions}>
-            <button onClick={() => handleAction('decline')} className={styles.btnSecondary}>Decline</button>
-            <button onClick={() => handleAction('accept')} className={styles.btnPrimary}>Accept</button>
-            <button onClick={() => handleAction('no_blood')} className={styles.btnOutline}>No Blood Available</button>
+            <button onClick={() => handleAction('decline')} className={styles.btnSecondary} disabled={loading}>Decline</button>
+            <button onClick={() => handleAction('accept')} className={styles.btnPrimary} disabled={loading}>Accept</button>
+            <button onClick={() => handleAction('no_blood')} className={styles.btnOutline} disabled={loading}>No Blood Available</button>
           </div>
         </div>
       </div>
