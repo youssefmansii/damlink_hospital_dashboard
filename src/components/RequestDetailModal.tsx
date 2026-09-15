@@ -137,6 +137,7 @@ export default function RequestDetailModal({ request, onClose, onChanged }: any)
     d.request_id === request.id && !['declined', 'completed', 'no_show'].includes(d.status)
   );
   const canManageDonors = ['donor_matching', 'donor_dispatched'].includes(request.status);
+  const canChooseHospitalAction = ['pending', 'hospital_notified', 'donor_matching', 'donor_dispatched'].includes(request.status);
 
   return (
     <div className={styles.overlay}>
@@ -158,6 +159,15 @@ export default function RequestDetailModal({ request, onClose, onChanged }: any)
             <div className={styles.errorBanner} role="alert">
               <AlertTriangle size={16} />
               <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {canManageDonors && (
+            <div className={styles.infoBanner}>
+              <Users size={16} />
+              <span>
+                This request is currently being sent to nearby donors. If hospital blood becomes available, you can still accept it here. Otherwise, decline it to remove it from active donor matching.
+              </span>
             </div>
           )}
 
@@ -253,9 +263,9 @@ export default function RequestDetailModal({ request, onClose, onChanged }: any)
             )}
           </div>
           <div className={styles.actions}>
-            <button onClick={() => handleAction('decline')} className={styles.btnSecondary} disabled={loading}>Decline</button>
-            <button onClick={() => handleAction('accept')} className={styles.btnPrimary} disabled={loading}>Accept</button>
-            <button onClick={() => handleAction('no_blood')} className={styles.btnOutline} disabled={loading}>No Blood Available</button>
+            <button onClick={() => handleAction('decline')} className={styles.btnSecondary} disabled={loading || !canChooseHospitalAction}>Decline</button>
+            <button onClick={() => handleAction('accept')} className={styles.btnPrimary} disabled={loading || !canChooseHospitalAction}>Accept</button>
+            <button onClick={() => handleAction('no_blood')} className={styles.btnOutline} disabled={loading || !canChooseHospitalAction}>No Blood Available</button>
           </div>
         </div>
       </div>
