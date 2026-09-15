@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export function useRealtimeDashboard(hospitalId: string | null) {
+export function useRealtimeDashboard(hospitalId: string | null, refreshKey = 0) {
   const [requests, setRequests] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [dispatches, setDispatches] = useState<any[]>([]);
@@ -105,7 +105,7 @@ export function useRealtimeDashboard(hospitalId: string | null) {
       supabase.removeChannel(invSub);
       supabase.removeChannel(dispSub);
     };
-  }, [hospitalId]);
+  }, [hospitalId, refreshKey]);
 
   return { requests, inventory, dispatches, isConnected };
 }

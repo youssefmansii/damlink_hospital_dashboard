@@ -16,6 +16,7 @@ export default function DashboardHome() {
   const [hospitalId, setHospitalId] = useState<string | null>(null);
   const [hospitalLocation, setHospitalLocation] = useState<[number, number]>([30.0444, 31.2357]);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +33,7 @@ export default function DashboardHome() {
     };
   }, []);
 
-  const { requests, inventory, dispatches, isConnected } = useRealtimeDashboard(hospitalId);
+  const { requests, inventory, dispatches, isConnected } = useRealtimeDashboard(hospitalId, refreshKey);
 
   // Stats
   const activeRequests = requests.length;
@@ -154,6 +155,7 @@ export default function DashboardHome() {
         <RequestDetailModal 
           request={selectedRequest} 
           dispatches={dispatches} 
+          onChanged={() => setRefreshKey((key) => key + 1)}
           onClose={() => setSelectedRequest(null)} 
         />
       )}

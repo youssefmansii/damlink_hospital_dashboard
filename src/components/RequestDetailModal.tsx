@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { MapPin, Clock, FileText, Users, X, AlertTriangle, User, MessageSquare } from 'lucide-react';
 import styles from './modal.module.css';
 
-export default function RequestDetailModal({ request, onClose, dispatches }: any) {
+export default function RequestDetailModal({ request, onClose, dispatches, onChanged }: any) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -42,6 +42,7 @@ export default function RequestDetailModal({ request, onClose, dispatches }: any
         if (invokeErr) throw invokeErr;
       }
       
+      onChanged?.();
       onClose();
     } catch (err) {
       console.error(err);
