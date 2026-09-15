@@ -73,10 +73,9 @@ export default function RequestDetailModal({ request, onClose, onChanged }: any)
         if (error) throw error;
       } 
       else if (action === 'decline') {
-        const { error } = await supabase
-          .from('emergency_requests')
-          .update({ status: 'declined' })
-          .eq('id', request.id);
+        const { error } = await supabase.functions.invoke('reroute-request', {
+          body: { request_id: request.id }
+        });
         if (error) throw error;
       }
       else if (action === 'no_blood') {
@@ -166,7 +165,7 @@ export default function RequestDetailModal({ request, onClose, onChanged }: any)
             <div className={styles.infoBanner}>
               <Users size={16} />
               <span>
-                This request is currently being sent to nearby donors. If hospital blood becomes available, you can still accept it here. Otherwise, decline it to remove it from active donor matching.
+                This request is currently being sent to nearby donors. If hospital blood becomes available, you can still accept it here. Otherwise, decline it to reroute to the next compatible hospital.
               </span>
             </div>
           )}
