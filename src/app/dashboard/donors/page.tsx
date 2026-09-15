@@ -44,24 +44,61 @@ export default function DonorsPage() {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data: rawDispatches, error } = await supabase
         .from('donor_dispatches')
         .select(
           `
             *,
-            emergency_requests(blood_type_needed, status, created_at),
-            profiles(full_name, blood_type, phone),
-            donor_profiles(reliability_rating, donations_count, last_donation_date)
+            emergency_requests(blood_type_needed, status, created_at)
           `
         )
         .in('request_id', requestIds)
-        .order('created_at', { ascending: false })
         .limit(50);
 
       if (cancelled) return;
 
-      if (error) setErrorMessage(error.message);
-      setDispatches(data ?? []);
+      if (error) {
+        setErrorMessage(error.message);
+        setDispatches([]);
+        setLoading(false);
+        return;
+      }
+
+      const dispatchRows = rawDispatches ?? [];
+      const donorIds = Array.from(new Set(dispatchRows.map((dispatch: any) => dispatch.donor_user_id).filter(Boolean)));
+
+      if (donorIds.length === 0) {
+        setDispatches(dispatchRows);
+        setLoading(false);
+        return;
+      }
+
+      const [profilesResult, donorProfilesResult] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, blood_type, phone').in('id', donorIds),
+        supabase.from('donor_profiles').select('user_id, reliability_rating, donations_count, last_donation_date').in('user_id', donorIds),
+      ]);
+
+      if (cancelled) return;
+
+      if (profilesResult.error || donorProfilesResult.error) {
+        setErrorMessage(profilesResult.error?.message || donorProfilesResult.error?.message || 'Could not load donor details.');
+      }
+
+      const profilesById = new Map((profilesResult.data ?? []).map((profile: any) => [profile.id, profile]));
+      const donorProfilesById = new Map((donorProfilesResult.data ?? []).map((profile: any) => [profile.user_id, profile]));
+      const enrichedDispatches = dispatchRows
+        .map((dispatch: any) => ({
+          ...dispatch,
+          profiles: profilesById.get(dispatch.donor_user_id) ?? null,
+          donor_profiles: donorProfilesById.get(dispatch.donor_user_id) ?? null,
+        }))
+        .sort((a: any, b: any) => {
+          const aTime = new Date(a.emergency_requests?.created_at ?? 0).getTime();
+          const bTime = new Date(b.emergency_requests?.created_at ?? 0).getTime();
+          return bTime - aTime;
+        });
+
+      setDispatches(enrichedDispatches);
       setLoading(false);
     };
 
