@@ -33,7 +33,7 @@ export default function DashboardHome() {
     };
   }, []);
 
-  const { requests, inventory, dispatches, isConnected } = useRealtimeDashboard(hospitalId, refreshKey);
+  const { requests, inventory, dispatches, isConnected, dashboardError } = useRealtimeDashboard(hospitalId, refreshKey);
 
   // Stats
   const activeRequests = requests.length;
@@ -70,6 +70,12 @@ export default function DashboardHome() {
       {!isConnected && (
         <div className={styles.offlineBanner}>
           <AlertCircle size={16} /> Connection lost. Trying to reconnect to Realtime...
+        </div>
+      )}
+
+      {dashboardError && (
+        <div className={styles.offlineBanner}>
+          <AlertCircle size={16} /> {dashboardError}
         </div>
       )}
 

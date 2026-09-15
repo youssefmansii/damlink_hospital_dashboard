@@ -1,13 +1,63 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, FileText, Users, X, AlertTriangle, User, MessageSquare } from 'lucide-react';
+import { CheckCircle2, MapPin, Clock, FileText, Users, X, AlertTriangle, User, MessageSquare } from 'lucide-react';
 import styles from './modal.module.css';
 
-export default function RequestDetailModal({ request, onClose, dispatches, onChanged }: any) {
+export default function RequestDetailModal({ request, onClose, onChanged }: any) {
   const [loading, setLoading] = useState(false);
+  const [dispatchLoading, setDispatchLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [requestDispatches, setRequestDispatches] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!request?.id) return;
+    let cancelled = false;
+
+    const loadRequestDispatches = async () => {
+      setDispatchLoading(true);
+
+      const { data, error } = await supabase.rpc('get_hospital_request_dispatches', {
+        p_request_id: request.id,
+      });
+
+      if (error) {
+        console.error('[RequestDetailModal] dispatch fetch failed:', error);
+        if (!cancelled) {
+          setErrorMessage(error.message);
+          setRequestDispatches([]);
+          setDispatchLoading(false);
+        }
+        return;
+      }
+
+      const rows = (data ?? []).map((d: any) => ({
+        ...d,
+        profiles: {
+          full_name: d.donor_full_name,
+          phone: d.donor_phone,
+          blood_type: d.donor_blood_type,
+        },
+        donor_profiles: {
+          reliability_rating: d.donor_reliability_rating,
+          donations_count: d.donor_donations_count,
+        },
+      }));
+
+      if (!cancelled) {
+        setRequestDispatches(rows);
+        setDispatchLoading(false);
+      }
+    };
+
+    loadRequestDispatches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [request?.id]);
 
   if (!request) return null;
 
@@ -57,10 +107,36 @@ export default function RequestDetailModal({ request, onClose, dispatches, onCha
       .from('donor_dispatches')
       .update({ status: 'notified' })
       .eq('id', dispatchId);
-    if (error) console.error(error);
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+    onChanged?.();
   };
 
-  const activeDispatches = dispatches.filter((d: any) => d.request_id === request.id);
+  const confirmDonation = async (dispatchId: string) => {
+    setConfirmingId(dispatchId);
+    setErrorMessage('');
+
+    try {
+      const { error } = await supabase.rpc('confirm_donor_donation', {
+        p_dispatch_id: dispatchId,
+      });
+      if (error) throw error;
+      onChanged?.();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(err instanceof Error ? err.message : 'Could not confirm this donation.');
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const activeDispatches = requestDispatches.filter((d: any) =>
+    d.request_id === request.id && !['declined', 'completed', 'no_show'].includes(d.status)
+  );
+  const canManageDonors = ['donor_matching', 'donor_dispatched'].includes(request.status);
 
   return (
     <div className={styles.overlay}>
@@ -127,33 +203,52 @@ export default function RequestDetailModal({ request, onClose, dispatches, onCha
             </div>
           </div>
 
-          {request.status === 'donor_matching' && activeDispatches.length > 0 && (
+          {canManageDonors && (
             <div className={styles.donorSection}>
               <h4>Best Matches for {request.blood_type_needed}</h4>
-              <div className={styles.donorList}>
-                {activeDispatches.map((d: any) => (
-                  <div key={d.id} className={styles.donorItem}>
-                    <div>
-                      <h5>{d.profiles?.full_name}</h5>
-                      <p>Rating: {d.donor_profiles?.reliability_rating} ★ | Score: {d.match_score}</p>
+              {dispatchLoading ? (
+                <p className={styles.emptyDonors}>Loading donor responses...</p>
+              ) : activeDispatches.length === 0 ? (
+                <p className={styles.emptyDonors}>No donor responses yet. Accepted donors will appear here for hospital confirmation.</p>
+              ) : (
+                <div className={styles.donorList}>
+                  {activeDispatches.map((d: any) => (
+                    <div key={d.id} className={styles.donorItem}>
+                      <div>
+                        <h5>{d.profiles?.full_name || `Donor ${String(d.donor_user_id || '').slice(0, 8)}`}</h5>
+                        <p>
+                          Status: {d.status.replace('_', ' ')}
+                          {typeof d.donor_profiles?.reliability_rating === 'number' ? ` | Rating: ${d.donor_profiles.reliability_rating} ★` : ''}
+                          {typeof d.match_score === 'number' ? ` | Score: ${d.match_score}` : ''}
+                        </p>
+                      </div>
+                      <div>
+                        {d.status === 'accepted' || d.status === 'en_route' ? (
+                          <button
+                            onClick={() => confirmDonation(d.id)}
+                            className={styles.confirmBtn}
+                            disabled={confirmingId === d.id}
+                          >
+                            <CheckCircle2 size={14} />
+                            {confirmingId === d.id ? 'CONFIRMING' : 'CONFIRM DONATION'}
+                          </button>
+                        ) : d.status === 'notified' ? (
+                          <span className={styles.badgeNotified}>Notified</span>
+                        ) : (
+                          <button onClick={() => dispatchToDonor(d.id)} className={styles.dispatchBtn}>DISPATCH</button>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      {d.status === 'notified' ? (
-                        <span className={styles.badgeNotified}>Notified</span>
-                      ) : (
-                        <button onClick={() => dispatchToDonor(d.id)} className={styles.dispatchBtn}>DISPATCH</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
 
         <div className={styles.footer}>
           <div className={styles.footerLeft}>
-            {request.status === 'donor_matching' && (
+            {canManageDonors && (
               <span className={styles.matchingText}><Users size={16} /> Sending request to nearby donors...</span>
             )}
           </div>

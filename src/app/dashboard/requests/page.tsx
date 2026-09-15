@@ -38,12 +38,43 @@ export default function RequestsPage() {
     setErrorMessage('');
     const { data, error } = await supabase
       .from('emergency_requests')
-      .select(`*, patients(full_name, blood_type)`)
+      .select('*')
       .eq('assigned_hospital_id', hId)
       .order('created_at', { ascending: false });
     
-    if (error) setErrorMessage(error.message);
-    if (data) setRequests(data);
+    if (error) {
+      setErrorMessage(error.message);
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+
+    const requestRows = data ?? [];
+    const patientIds = Array.from(new Set(requestRows.map((r: any) => r.patient_id).filter(Boolean)));
+
+    if (patientIds.length === 0) {
+      setRequests(requestRows);
+      setLoading(false);
+      return;
+    }
+
+    const { data: patients, error: patientsError } = await supabase
+      .from('patients')
+      .select('id, full_name, blood_type')
+      .in('id', patientIds);
+
+    if (patientsError) {
+      setErrorMessage(`Requests loaded, but patient details could not be loaded: ${patientsError.message}`);
+      setRequests(requestRows);
+      setLoading(false);
+      return;
+    }
+
+    const patientsById = new Map((patients ?? []).map((patient: any) => [patient.id, patient]));
+    setRequests(requestRows.map((request: any) => ({
+      ...request,
+      patients: patientsById.get(request.patient_id) ?? null,
+    })));
     setLoading(false);
   };
 

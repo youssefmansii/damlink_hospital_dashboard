@@ -234,6 +234,16 @@
   margin-bottom: 16px;
 }
 
+.emptyDonors {
+  padding: 14px 16px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: #F8FAFC;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .donorList {
   display: flex;
   flex-direction: column;
@@ -266,6 +276,24 @@
   border-radius: 6px;
   font-weight: 600;
   font-size: 12px;
+}
+
+.confirmBtn {
+  background-color: #16a34a;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+
+.confirmBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .badgeNotified {
