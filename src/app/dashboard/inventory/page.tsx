@@ -61,11 +61,20 @@ export default function InventoryPage() {
 
     setInventory(prev => prev.map(i => i.blood_type === bloodType ? { ...i, units: newUnits } : i));
 
-    const { error } = await supabase
-      .from('hospital_blood_inventory')
-      .update({ units: newUnits })
-      .eq('hospital_id', hospitalId)
-      .eq('blood_type', bloodType);
+    // Atomic +/- on the server so two staff members (or the accept function reserving a unit) cannot overwrite each other.
+    let { error } = await supabase.rpc('adjust_inventory', {
+      p_hospital_id: hospitalId,
+      p_blood_type: bloodType,
+      p_delta: change,
+    });
+    if (error && (error.code === 'PGRST202' || /adjust_inventory/i.test(error.message))) {
+      // RPC not deployed yet: fall back to the old absolute update
+      ({ error } = await supabase
+        .from('hospital_blood_inventory')
+        .update({ units: newUnits })
+        .eq('hospital_id', hospitalId)
+        .eq('blood_type', bloodType));
+    }
 
     if (error) {
       setInventory(previousInventory);

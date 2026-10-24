@@ -1,5 +1,6 @@
 'use client';
 
+import { parseDbPoint } from '@/lib/geo';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle2, MapPin, Clock, FileText, Users, X, AlertTriangle, User, MessageSquare } from 'lucide-react';
@@ -201,7 +202,19 @@ export default function RequestDetailModal({ request, onClose, onChanged }: any)
             {/* Accident Details */}
             <div className={styles.card}>
               <h4 className={styles.cardTitle}><MapPin size={16} /> Accident Details</h4>
-              <p className={styles.meta}><MapPin size={14} /> Location: Check Map</p>
+              {(() => {
+                const p = parseDbPoint(request.location);
+                return p ? (
+                  <p className={styles.meta}>
+                    <MapPin size={14} /> Location:{' '}
+                    <a href={`https://www.google.com/maps?q=${p[0]},${p[1]}`} target="_blank" rel="noreferrer">
+                      {p[0].toFixed(4)}, {p[1].toFixed(4)} (open in Maps)
+                    </a>
+                  </p>
+                ) : (
+                  <p className={styles.meta}><MapPin size={14} /> Location: not shared by the bystander</p>
+                );
+              })()}
               <p className={styles.meta}><Clock size={14} /> Received: {new Date(request.created_at).toLocaleTimeString()}</p>
             </div>
 
