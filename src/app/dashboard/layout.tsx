@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, ClipboardList, Droplet, Users, Bell, User } from 'lucide-react';
+import { Home, ClipboardList, Droplet, Users, Bell, User, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { getHospitalContext, type HospitalContext } from '@/lib/hospitalAuth';
@@ -13,6 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [context, setContext] = useState<HospitalContext | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +39,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
   }, [router]);
 
+  // Real number of requests waiting for this hospital (replaces the hard-coded "3").
+  useEffect(() => {
+    const hospitalId = context?.hospital.id;
+    if (!hospitalId) return;
+    let cancelled = false;
+    const load = async () => {
+      const { count } = await supabase
+        .from('emergency_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_hospital_id', hospitalId)
+        .in('status', ['pending', 'hospital_notified']);
+      if (!cancelled) setPendingCount(count ?? 0);
+    };
+    load();
+    const timer = setInterval(load, 20000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [context?.hospital.id]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
+  };
+
   const navItems = [
     { name: 'Dashboard', icon: Home, path: '/dashboard' },
     { name: 'Inventory', icon: Droplet, path: '/dashboard/inventory' },
@@ -59,13 +83,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <header className={styles.header}>
         <div className={styles.logoArea}>
           <div className={styles.logoIcon}><Droplet size={20} color="white" /></div>
-          <span className={styles.logoText}>Damlink</span>
+          <span className={styles.logoText}>DamLink</span>
         </div>
         <div className={styles.headerRight}>
-          <div className={styles.notification} aria-label="Notifications">
+          <Link href="/dashboard/requests" className={styles.notification} aria-label={`Notifications: ${pendingCount} waiting`} style={{ color: 'inherit' }}>
             <Bell size={20} />
-            <span className={styles.badge}>3</span>
-          </div>
+            {pendingCount > 0 && <span className={styles.badge}>{pendingCount > 99 ? '99+' : pendingCount}</span>}
+          </Link>
           <div className={styles.userProfile}>
             <div className={styles.avatar}><User size={16} /></div>
             <div className={styles.userInfo}>
@@ -73,6 +97,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className={styles.userRole}>{context?.hospital.name}</span>
             </div>
           </div>
+          <button
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            title="Sign out"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'inherit', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13 }}
+          >
+            <LogOut size={16} /> Sign out
+          </button>
         </div>
       </header>
 
